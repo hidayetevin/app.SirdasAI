@@ -1,6 +1,7 @@
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { ProfileSettingsScreen } from './screens/ProfileSettingsScreen';
+import { CallScreen } from './screens/CallScreen';
 import { dbService } from '../services/DatabaseService';
 import { adMobService } from '../services/AdMobService';
 
@@ -9,6 +10,7 @@ export class UIManager {
     public onboardingScreen: OnboardingScreen;
     public chatScreen: ChatScreen;
     public profileScreen: ProfileSettingsScreen;
+    public callScreen: CallScreen;
 
     constructor(containerId: string) {
         const el = document.getElementById(containerId);
@@ -36,6 +38,10 @@ export class UIManager {
             () => {
                 // Profile clicked
                 this.showScreen('profile');
+            },
+            () => {
+                // Call clicked
+                this.showScreen('call');
             }
         );
 
@@ -59,24 +65,31 @@ export class UIManager {
             }
         );
 
+        this.callScreen = new CallScreen(() => {
+            this.showScreen('chat');
+        });
+
         // Append all screens to container
         this.container.appendChild(this.onboardingScreen.element);
         this.container.appendChild(this.chatScreen.element);
         this.container.appendChild(this.profileScreen.element);
+        this.container.appendChild(this.callScreen.element);
 
         // Varsayılan olarak Onboarding'i göster
         this.showScreen('onboarding');
     }
 
-    public showScreen(screenId: 'onboarding' | 'chat' | 'profile') {
+    public showScreen(screenId: 'onboarding' | 'chat' | 'profile' | 'call') {
         // Hide all
         this.onboardingScreen.element.classList.remove('active');
         this.chatScreen.element.classList.remove('active');
         this.profileScreen.element.classList.remove('active');
+        this.callScreen.element.classList.remove('active');
 
         // Show target
         if (screenId === 'onboarding') this.onboardingScreen.element.classList.add('active');
         if (screenId === 'chat') this.chatScreen.element.classList.add('active');
         if (screenId === 'profile') this.profileScreen.element.classList.add('active');
+        if (screenId === 'call') this.callScreen.element.classList.add('active');
     }
 }

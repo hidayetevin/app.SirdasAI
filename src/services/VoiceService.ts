@@ -1,0 +1,116 @@
+export class VoiceService {
+    private recognition: any = null;
+    private synth: SpeechSynthesis;
+    private isListening: boolean = false;
+    private silenceTimeout: any = null;
+    private onSpeechResultCallback: ((text: string) => void) | null = null;
+    private onStartListeningCallback: (() => void) | null = null;
+
+    constructor() {
+        this.synth = window.speechSynthesis;
+        this.initRecognition();
+    }
+
+    private initRecognition() {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            this.recognition = new SpeechRecognition();
+            this.recognition.continuous = true;
+            this.recognition.interimResults = false;
+            this.recognition.lang = 'tr-TR';
+
+            this.recognition.onresult = (event: any) => {
+                const text = event.results[event.results.length - 1][0].transcript;
+                console.log('Voice result:', text);
+                if (this.onSpeechResultCallback) {
+                    this.onSpeechResultCallback(text);
+                }
+                this.resetSilenceTimeout();
+            };
+
+            this.recognition.onerror = (event: any) => {
+                console.error('Speech recognition error:', event.error);
+                if (event.error === 'not-allowed') {
+                    alert('Lütfen mikrofon erişimine izin verin.');
+                }
+            };
+
+            this.recognition.onend = () => {
+                if (this.isListening) {
+                    this.recognition.start(); // Restart if it ends unexpectedly
+                }
+            };
+        } else {
+            console.warn('Speech Recognition API not supported in this browser.');
+        }
+    }
+
+    public startListening(onResult: (text: string) => void, onStart?: () => void) {
+        if (!this.recognition) return;
+        this.onSpeechResultCallback = onResult;
+        this.onStartListeningCallback = onStart || null;
+        this.isListening = true;
+        try {
+            this.recognition.start();
+            if (this.onStartListeningCallback) this.onStartListeningCallback();
+        } catch (e) {
+            console.error('Recognition start error', e);
+        }
+    }
+
+    public stopListening() {
+        this.isListening = false;
+        if (this.recognition) {
+            this.recognition.stop();
+        }
+        this.clearSilenceTimeout();
+    }
+
+    private resetSilenceTimeout() {
+        this.clearSilenceTimeout();
+        // VAD Logic: If user is silent for 2 seconds, trigger AI (handled by the screen logic usually)
+    }
+
+    private clearSilenceTimeout() {
+        if (this.silenceTimeout) {
+            clearTimeout(this.silenceTimeout);
+            this.silenceTimeout = null;
+        }
+    }
+
+    public speak(text: string, gender: string = 'neutral'): Promise<void> {
+        return new Promise((resolve) => {
+            this.synth.cancel(); // Stop current speech
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'tr-TR';
+            utterance.rate = 0.95; // Slightly slower for more natural feel
+            utterance.pitch = 1.0;
+
+            // Voice selection logic
+            const voices = this.synth.getVoices();
+            const trVoices = voices.filter(v => v.lang.startsWith('tr'));
+
+            if (trVoices.length > 0) {
+                // Try to find a voice by gender
+                let selectedVoice = trVoices[0];
+                if (gender === 'female') {
+                    selectedVoice = trVoices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('yelda')) || trVoices[0];
+                } else if (gender === 'male') {
+                    selectedVoice = trVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('tolga')) || trVoices[0];
+                }
+                utterance.voice = selectedVoice;
+            }
+
+            utterance.onend = () => resolve();
+            utterance.onerror = () => resolve();
+
+            this.synth.speak(utterance);
+        });
+    }
+
+    public stopSpeaking() {
+        this.synth.cancel();
+    }
+}
+
+export const voiceService = new VoiceService();

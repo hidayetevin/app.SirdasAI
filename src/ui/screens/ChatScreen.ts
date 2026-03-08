@@ -7,10 +7,12 @@ export class ChatScreen {
     private aiSilhouette: AISilhouette;
     private onSendMessage: (text: string) => void;
     private onProfileClick: () => void;
+    private onCallClick: () => void;
 
-    constructor(onSendMessage: (text: string) => void, onProfileClick: () => void) {
+    constructor(onSendMessage: (text: string) => void, onProfileClick: () => void, onCallClick: () => void) {
         this.onSendMessage = onSendMessage;
         this.onProfileClick = onProfileClick;
+        this.onCallClick = onCallClick;
         this.element = document.createElement('div');
         this.element.className = 'screen-container chat-screen';
         this.aiSilhouette = new AISilhouette();
@@ -24,7 +26,10 @@ export class ChatScreen {
           <div id="chat-silhouette-mini" style="transform: scale(0.3); transform-origin: left center; width: 40px;"></div>
           <span style="font-weight:600; font-size: 18px;" id="chat-ai-name">Sırdaş AI</span>
         </div>
-        <button class="profile-btn" id="btn-profile">⚙</button>
+        <div style="display:flex; gap:10px;">
+          <button class="profile-btn" id="btn-call" style="border-color: #4cd964; color: #4cd964;">📞</button>
+          <button class="profile-btn" id="btn-profile">⚙</button>
+        </div>
       </div>
       
       <div class="chat-messages" id="chat-messages">
@@ -50,6 +55,9 @@ export class ChatScreen {
         // Events
         this.element.querySelector('#btn-profile')?.addEventListener('click', () => {
             this.onProfileClick();
+        });
+        this.element.querySelector('#btn-call')?.addEventListener('click', () => {
+            this.onCallClick();
         });
 
         this.element.querySelector('#btn-send')?.addEventListener('click', () => this.handleSend());

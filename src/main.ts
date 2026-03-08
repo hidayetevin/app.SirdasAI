@@ -3,6 +3,7 @@ import './ui/styles/main.css';
 import { UIManager } from './ui/UIManager';
 import { dbService } from './services/DatabaseService';
 import { memoryService } from './services/MemoryService';
+import { voiceService } from './services/VoiceService';
 
 async function initApp() {
   console.log("Sırdaş AI Booting up...");
@@ -20,7 +21,7 @@ async function initApp() {
 
   // 3. UI Events -> Domain Logic Binding
 
-  // Kullanıcı mesaj yolladığında
+  // Kullanıcı mesaj yolladığında (Chat)
   (uiManager.chatScreen as any).onSendMessage = async (text: string) => {
     try {
       const settings = await dbService.getSettings('main_user');
@@ -57,17 +58,75 @@ async function initApp() {
   // Memory Temizleme
   (uiManager.profileScreen as any).onClearMemory = async () => {
     await dbService.clearAllMemories();
-    console.log("Silindi");
+    console.log("Bellek silindi");
   };
+
+  // --- Call Mode Mantığı ---
+  (uiManager.callScreen as any).onHangUp = () => {
+    voiceService.stopListening();
+    voiceService.stopSpeaking();
+    uiManager.showScreen('chat');
+  };
+
+  // Ekran geçişlerini dinleyerek Call Mode'u tetikle
+  const originalShowScreen = uiManager.showScreen.bind(uiManager);
+  uiManager.showScreen = (screenId: any) => {
+    originalShowScreen(screenId);
+
+    if (screenId === 'call') {
+      startVoiceSession();
+    } else {
+      voiceService.stopListening();
+      voiceService.stopSpeaking();
+    }
+  };
+
+  async function startVoiceSession() {
+    const settings = await dbService.getSettings('main_user');
+    const aiName = settings?.aiName || 'Sırdaş';
+    const aiGender = settings?.aiGender || 'neutral';
+
+    uiManager.callScreen.startCall(aiName);
+    uiManager.callScreen.setStatus('Dinliyor...');
+
+    // Recursive listening function
+    const listenLoop = async () => {
+      voiceService.startListening(async (text) => {
+        if (!text.trim()) return;
+
+        voiceService.stopListening();
+        uiManager.callScreen.setStatus('Cevap Veriyor...');
+
+        try {
+          const response = await memoryService.handleUserMessage(text, aiName);
+
+          // AI'nın cevabını sesli oku
+          await voiceService.speak(response, aiGender);
+
+          // Okuma bittikten sonra tekrar dinlemeye başla
+          uiManager.callScreen.setStatus('Dinliyor...');
+          listenLoop();
+        } catch (err) {
+          console.error(err);
+          uiManager.callScreen.setStatus('Hata oluştu.');
+        }
+      });
+    };
+
+    listenLoop();
+  }
 
   // İlk açılışta ayarlara bak
   const userSettings = await dbService.getSettings('main_user');
   if (userSettings) {
     uiManager.chatScreen.updateAiName(userSettings.aiName);
 
-    // Geçmiş mesajları yükle
     const oldMsgs = await dbService.getRecentMessages(10);
-    oldMsgs.forEach(m => uiManager.chatScreen.addMessage(m.text, m.role));
+    oldMsgs.forEach(m => {
+      if (m.role === 'user' || m.role === 'ai') {
+        uiManager.chatScreen.addMessage(m.text, m.role);
+      }
+    });
 
     uiManager.showScreen('chat');
   } else {

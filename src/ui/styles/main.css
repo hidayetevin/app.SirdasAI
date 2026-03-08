@@ -300,3 +300,129 @@ h2.title {
   align-items: center;
   justify-content: center;
 }
+
+/* --- Call Screen --- */
+.call-screen {
+  background: radial-gradient(circle at center, #1a1e26 0%, #0d0f14 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 40px 20px;
+  padding-top: calc(env(safe-area-inset-top) + 40px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 100px);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.call-bg-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 60%);
+  z-index: -1;
+  opacity: 0.3;
+}
+
+.call-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.call-name {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.call-timer {
+  font-size: 16px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.call-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.call-silhouette-large .ai-silhouette {
+  width: min(60vw, 250px);
+  height: min(60vw, 250px);
+  box-shadow: 0 0 60px var(--primary-glow);
+}
+
+.call-silhouette-large .ai-silhouette-container {
+  margin: 0;
+}
+
+.call-status {
+  font-size: 16px;
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 300;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.call-controls {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  padding-bottom: 20px;
+}
+
+.call-btn {
+  background: rgba(40, 45, 55, 0.4);
+  backdrop-filter: blur(5px);
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.call-btn .icon {
+  font-size: 24px;
+}
+
+.call-btn.active {
+  background: var(--primary-color);
+  color: #000;
+}
+
+.hangup-btn {
+  background: #ff3b30;
+  width: 74px;
+  height: 74px;
+  transform: rotate(135deg);
+  /* Call icon rotation for hangup */
+  border-color: #ff5b5b;
+}
+
+.hangup-btn:active {
+  transform: rotate(135deg) scale(0.9);
+  background: #ff5b5b;
+}
+
+.call-btn .label {
+  font-size: 11px;
+  margin-top: 4px;
+  position: absolute;
+  top: 70px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
