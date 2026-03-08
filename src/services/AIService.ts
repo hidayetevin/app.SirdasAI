@@ -4,14 +4,14 @@ export class AIService {
     private geminiKey: string;
     private groqKey: string;
 
-    private GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+    private GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
     private GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
     constructor() {
         // Vite ortam değişkenlerini al
         this.geminiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
         this.groqKey = import.meta.env.VITE_GROQ_API_KEY || '';
-        console.log("Genimi :" + this.geminiKey);
+        console.log("Gemini :" + this.geminiKey);
         console.log("Groq :" + this.groqKey);
     }
 
@@ -96,7 +96,7 @@ Kurallar:
                 contents: contents,
                 generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 150 // Maliyet optimizasyonu için kısa cevap garantisi
+                    maxOutputTokens: 512 // Daha güvenli limit, prompt ile kısa cevap zorlanıyor
                 }
             })
         });
@@ -129,7 +129,7 @@ Kurallar:
                 model: "llama-3.1-8b-instant", // Hızlı ve düşük maliyetli Groq modeli
                 messages: messages,
                 temperature: 0.7,
-                max_tokens: 150
+                max_tokens: 512
             })
         });
 
