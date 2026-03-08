@@ -1,6 +1,6 @@
 import { dbService } from './DatabaseService';
 import { aiService } from './AIService';
-import { ChatMessage, MemoryItem, UserProfile } from '../models/types';
+import { ChatMessage, MemoryItem } from '../models/types';
 // Removed uuid import, using native crypto
 
 export class MemoryService {

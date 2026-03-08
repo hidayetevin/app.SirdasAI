@@ -1,4 +1,4 @@
-import { UserSettings, ChatMessage, MemoryItem, UserProfile, MoodLog } from '../models/types';
+import { UserSettings, ChatMessage, MemoryItem, UserProfile } from '../models/types';
 
 export class DatabaseService {
     private dbName = 'SirdasAIDB';
