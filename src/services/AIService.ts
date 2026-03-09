@@ -4,15 +4,13 @@ export class AIService {
     private geminiKey: string;
     private groqKey: string;
 
-    private GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    private GEMINI_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
     private GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
     constructor() {
         // Vite ortam değişkenlerini al
         this.geminiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
         this.groqKey = import.meta.env.VITE_GROQ_API_KEY || '';
-        console.log("Gemini :" + this.geminiKey);
-        console.log("Groq :" + this.groqKey);
     }
 
     // Orchestrator Metodu: Mesajı alır, Memory/Profil bağlamını (context) enjekte eder ve sağlayıcıya gönderir.
@@ -78,16 +76,40 @@ Kurallar:
     private async callGemini(systemPrompt: string, history: any[], userMessage: string): Promise<string> {
         if (!this.geminiKey) throw new Error("Gemini API key is missing");
 
-        const contents = [
-            { role: "user", parts: [{ text: "SYSTEM INSTRUCTION:\\n" + systemPrompt }] },
-            { role: "model", parts: [{ text: "Anladım. Kurallara uyacağım." }] }
+        // 1. En kararlı yapı: Sistem talimatını ilk mesaj çifti olarak enjekte et.
+        // Bu yöntem hem v1 hem v1beta'da sorunsuz çalışır ve 'system_instruction' saha hatasını engeller.
+        const contents: any[] = [
+            {
+                role: "user",
+                parts: [{ text: `TALİMATLAR: ${systemPrompt}` }]
+            },
+            {
+                role: "model",
+                parts: [{ text: "Anladım. Sırdaş AI olarak bu kurallara göre cevap vereceğim." }]
+            }
         ];
 
+        let nextExpectedRole = "user";
         history.forEach(h => {
-            contents.push({ role: h.role, parts: [{ text: h.content }] });
+            // Role alternasyonunu koru ve mükerrerleri engelle
+            if (h.role === nextExpectedRole) {
+                // Eğer son mesaj mevcut girdi ile aynıysa atla
+                if (h.role === 'user' && h.content === userMessage) return;
+
+                if (h.content && h.content.trim() !== "") {
+                    contents.push({ role: h.role, parts: [{ text: h.content }] });
+                    nextExpectedRole = nextExpectedRole === "user" ? "model" : "user";
+                }
+            }
         });
 
-        contents.push({ role: "user", parts: [{ text: userMessage }] });
+        // Sonuç mutlaka kullanıcı mesajı ile bitmeli
+        if (nextExpectedRole === "user") {
+            contents.push({ role: "user", parts: [{ text: userMessage }] });
+        } else if (contents.length > 0) {
+            // Eğer model bekleniyorsa ama biz user göndermek zorundaysak, sonuncuyu (eski user) değiştirelim
+            contents[contents.length - 1] = { role: "user", parts: [{ text: userMessage }] };
+        }
 
         const response = await fetch(`${this.GEMINI_URL}?key=${this.geminiKey}`, {
             method: 'POST',
@@ -96,13 +118,26 @@ Kurallar:
                 contents: contents,
                 generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 512 // Daha güvenli limit, prompt ile kısa cevap zorlanıyor
+                    maxOutputTokens: 512
                 }
             })
         });
 
-        if (!response.ok) throw new Error("Gemini HTTP Error: " + response.status);
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Gemini Error Detail:", errorBody);
+            throw new Error(`Gemini Error (${response.status}): ${errorBody}`);
+        }
+
         const data = await response.json();
+        if (!data.candidates || data.candidates.length === 0) {
+            // Bazı durumlarda bloklanmış içerik olabilir
+            if (data.promptFeedback?.blockReason) {
+                throw new Error("Content blocked by Gemini: " + data.promptFeedback.blockReason);
+            }
+            throw new Error("Gemini returned no candidates");
+        }
+
         return data.candidates[0].content.parts[0].text;
     }
 

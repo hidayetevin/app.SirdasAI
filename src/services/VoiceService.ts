@@ -5,6 +5,7 @@ export class VoiceService {
     private silenceTimeout: any = null;
     private onSpeechResultCallback: ((text: string) => void) | null = null;
     private onStartListeningCallback: (() => void) | null = null;
+    private TTS_API_URL = 'http://localhost:8002/tts';
 
     constructor() {
         this.synth = window.speechSynthesis;
@@ -78,9 +79,31 @@ export class VoiceService {
         }
     }
 
-    public speak(text: string, gender: string = 'neutral'): Promise<void> {
+    public async speak(text: string, gender: string = 'neutral'): Promise<void> {
+        try {
+            // 1. Önce Yerel Ultra-Kaliteli Servisi (XTTS v2) Dene
+            const response = await fetch(`${this.TTS_API_URL}?text=${encodeURIComponent(text)}&gender=${gender.toLowerCase()}`);
+            if (response.ok) {
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                return new Promise((resolve) => {
+                    audio.onended = () => resolve();
+                    audio.onerror = () => resolve();
+                    audio.play();
+                });
+            }
+        } catch (e) {
+            console.warn("Yerel ses servisi aktif değil, tarayıcı sesine dönülüyor.");
+        }
+
+        // 2. Yedek: Web Speech API (Tarayıcı Sesi)
+        return this.speakWithBrowser(text, gender);
+    }
+
+    private speakWithBrowser(text: string, gender: string): Promise<void> {
         return new Promise((resolve) => {
-            this.synth.cancel(); // Stop current speech
+            this.synth.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'tr-TR';
             utterance.rate = 0.95; // Slightly slower for more natural feel

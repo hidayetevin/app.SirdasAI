@@ -40,3 +40,10 @@ Desktop.ini
 /ios
 /www
 /resources
+
+# VS
+.vs/
+
+# Voice
+Voice/temp_audio/
+Voice/__pycache__/
