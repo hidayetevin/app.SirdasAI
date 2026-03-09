@@ -4,7 +4,7 @@ export class AIService {
     private geminiKey: string;
     private groqKey: string;
 
-    private GEMINI_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
+    private GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
     private GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
     constructor() {
