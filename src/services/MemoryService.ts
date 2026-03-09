@@ -36,7 +36,7 @@ export class MemoryService {
     }
 
     // Uçtan uca mesaj işleyici
-    public async handleUserMessage(text: string, aiName: string): Promise<string> {
+    public async handleUserMessage(text: string, aiName: string): Promise<{ text: string; mood: string; }> {
 
         // 1. Gelen mesajı kaydet
         const userMsg: ChatMessage = {
@@ -54,16 +54,17 @@ export class MemoryService {
         const profile = await dbService.getProfile();
 
         // 4. AIService'e gönder
-        const aiResponseText = await aiService.generateResponse(text, recentMsgs, memories, profile, aiName);
+        const aiResponse = await aiService.generateResponse(text, recentMsgs, memories, profile, aiName);
 
-        // 5. Cevabı kaydet
+        // 5. Cevabı kaydet (Sadece metni kaydediyoruz)
         const aiMsg: ChatMessage = {
             id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-            role: 'ai', text: aiResponseText, timestamp: Date.now()
+            role: 'ai', text: aiResponse.text, timestamp: Date.now()
         };
         await dbService.addMessage(aiMsg);
 
-        return aiResponseText;
+        // Hem metni hem duyguyu dönüyoruz ki UI ve Voice kullansın
+        return aiResponse as any;
     }
 }
 

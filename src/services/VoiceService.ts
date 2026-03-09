@@ -79,10 +79,10 @@ export class VoiceService {
         }
     }
 
-    public async speak(text: string, gender: string = 'neutral'): Promise<void> {
+    public async speak(text: string, gender: string = 'neutral', mood: string = 'normal'): Promise<void> {
         try {
-            // 1. Önce Yerel Ultra-Kaliteli Servisi (XTTS v2) Dene
-            const response = await fetch(`${this.TTS_API_URL}?text=${encodeURIComponent(text)}&gender=${gender.toLowerCase()}`);
+            // 1. Önce Yerel Ultra-Kaliteli Servisi (Edge-TTS) Dene
+            const response = await fetch(`${this.TTS_API_URL}?text=${encodeURIComponent(text)}&gender=${gender.toLowerCase()}&mood=${mood}`);
             if (response.ok) {
                 const audioBlob = await response.blob();
                 const audioUrl = URL.createObjectURL(audioBlob);
@@ -98,16 +98,32 @@ export class VoiceService {
         }
 
         // 2. Yedek: Web Speech API (Tarayıcı Sesi)
-        return this.speakWithBrowser(text, gender);
+        return this.speakWithBrowser(text, gender, mood);
     }
 
-    private speakWithBrowser(text: string, gender: string): Promise<void> {
+    private speakWithBrowser(text: string, gender: string, mood: string): Promise<void> {
         return new Promise((resolve) => {
             this.synth.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'tr-TR';
-            utterance.rate = 0.95; // Slightly slower for more natural feel
-            utterance.pitch = 1.0;
+
+            // Duyguya göre hız ve perde ayarla (Tarayıcı Simülasyonu)
+            let rate = 0.95;
+            let pitch = 1.0;
+
+            if (mood === 'uzgun') {
+                rate = 0.8;
+                pitch = 0.8;
+            } else if (mood === 'heyecanli' || mood === 'mutlu') {
+                rate = 1.1;
+                pitch = 1.2;
+            } else if (mood === 'ciddi') {
+                rate = 0.9;
+                pitch = 0.9;
+            }
+
+            utterance.rate = rate;
+            utterance.pitch = pitch;
 
             // Voice selection logic
             const voices = this.synth.getVoices();

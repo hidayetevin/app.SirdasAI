@@ -26,8 +26,8 @@ async function initApp() {
     try {
       const settings = await dbService.getSettings('main_user');
       const aiName = settings?.aiName || 'Sırdaş';
-      const response = await memoryService.handleUserMessage(text, aiName);
-      uiManager.chatScreen.addMessage(response, 'ai');
+      const aiResponse = await memoryService.handleUserMessage(text, aiName);
+      uiManager.chatScreen.addMessage(aiResponse.text, 'ai');
     } catch (err) {
       console.error(err);
       uiManager.chatScreen.addMessage("Bağlantımda bir sorun var, hemen dönüyorum.", 'ai');
@@ -98,10 +98,10 @@ async function initApp() {
         uiManager.callScreen.setStatus('Cevap Veriyor...');
 
         try {
-          const response = await memoryService.handleUserMessage(text, aiName);
+          const aiResponse = await memoryService.handleUserMessage(text, aiName);
 
-          // AI'nın cevabını sesli oku
-          await voiceService.speak(response, aiGender);
+          // AI'nın cevabını sesli oku (Duygu ile birlikte)
+          await voiceService.speak(aiResponse.text, aiGender, aiResponse.mood);
 
           // Okuma bittikten sonra tekrar dinlemeye başla
           uiManager.callScreen.setStatus('Dinliyor...');

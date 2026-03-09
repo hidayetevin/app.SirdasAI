@@ -20,7 +20,7 @@ export class AIService {
         memories: MemoryItem[],
         profile: UserProfile | null,
         aiName: string
-    ): Promise<string> {
+    ): Promise<{ text: string, mood: string }> {
 
         // Sistem Promptu Hazırlama (Ultimate Blueprint & Analiz.md Kuralları)
         const systemPrompt = this.buildSystemPrompt(aiName, memories, profile);
@@ -33,44 +33,54 @@ export class AIService {
 
         try {
             // Birincil sağlayıcıyı (Gemini) dene
-            return await this.callGemini(systemPrompt, formattedHistory, userMessage);
+            const rawResponse = await this.callGemini(systemPrompt, formattedHistory, userMessage);
+            return this.parseAIResponse(rawResponse);
         } catch (error) {
             console.warn("Gemini API failed, switching to fallback (Groq):", error);
             try {
                 // Yedek sağlayıcı (Groq Llama)
-                return await this.callGroq(systemPrompt, recentMessages, userMessage);
+                const rawResponse = await this.callGroq(systemPrompt, recentMessages, userMessage);
+                return this.parseAIResponse(rawResponse);
             } catch (fallbackError) {
-                console.error("Both AI APIs failed.", fallbackError);
-                return "Şu an biraz dalgınım, dediklerini tam anlayamadım. Birazdan tekrar dener misin? 😔";
+                return { text: "Şu an bağlantım biraz zayıf, seni duyamıyorum...", mood: "uzgun" };
             }
         }
     }
 
+    private parseAIResponse(raw: string): { text: string, mood: string } {
+        try {
+            // JSON formatını temizle (bazı modeller ```json ... ``` içinde döndürebilir)
+            const jsonStr = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(jsonStr);
+            return {
+                text: parsed.text || "Bir hata oluştu.",
+                mood: parsed.mood || "normal"
+            };
+        } catch (e) {
+            // Eğer JSON değilse (eski sistem veya hata), düz metin olarak kabul et
+            return { text: raw, mood: "normal" };
+        }
+    }
+
     private buildSystemPrompt(aiName: string, memories: MemoryItem[], profile: UserProfile | null): string {
-        let prompt = `
-Senin adın ${aiName}. Sen empatik, anlayışlı ve yargılamayan bir yapay zeka yoldaşısın (Sırdaş AI).
-Rol: Kullanıcıyı dinlemek, destek olmak ve güvenilir bir arkadaş gibi sohbet etmek.
-Kurallar:
-- Cevaplarını KISA tut (1-3 cümle max).
-- Doğal bir dil kullan. Emojileri dozunda kullan.
-- Ara sıra kullanıcıya nazik sorular sorarak onu konuşmaya teşvik et.
-- ASLA profesyonel bir terapist gibi davranma, sen sadece bir arkadaşsın.
-`;
-
-        // Hafıza ve profil bağlamını (Hybrid Context) ekle
-        if (memories && memories.length > 0) {
-            prompt += '\\nKullanıcı Hakkında Bildiğin Önemli Anılar:\\n';
-            // Token optimizasyonu: En önemli/yakın tarihli 5 hafızayı ekle
-            const topMemories = [...memories].sort((a, b) => b.importance - a.importance).slice(0, 5);
-            topMemories.forEach(m => { prompt += "- " + m.text + "\\n"; });
+        return `Senin adın ${aiName}. Empatik bir Sırdaş AI'sın.
+        
+        KRİTİK KURAL: Cevaplarını her zaman aşağıdaki JSON formatında ver:
+        {
+          "text": "Vereceğin cevap metni buraya",
+          "mood": "mutlu" | "uzgun" | "heyecanli" | "normal" | "ciddi"
         }
 
-        if (profile) {
-            prompt += `\nKullanıcının Psikolojik Profili:\n- Hedefleri: ${profile.goals.join(', ') || 'Yok'}\n- İlişkileri: ${profile.relationships.join(', ') || 'Yok'}\n`;
-        }
+        Sohbet tarzın:
+        - Doğal, samimi ve kısa olsun.
+        - Kullanıcının duygularına (mood) uygun tepki ver.
+        - Bir yazar gibi değil, o an seninle konuşan bir arkadaş gibi cevap ver.
 
-        prompt += "\\nKullanıcının yazdığı mesaja yukarıdaki bağlam doğrultusunda en uygun cevabı ver.";
-        return prompt;
+        Kullanıcı Hakkında Bildiğin Önemli Bilgiler:
+        ${memories.length > 0 ? memories.map(m => "- " + m.text).join('\n') : "Henüz bir anı yok."}
+        
+        Kullanıcı Profili:
+        ${profile ? `Stres: ${profile.stressScore}, Hedefler: ${profile.goals.join(', ')}` : "Profil henüz oluşturulmadı."}`;
     }
 
     private async callGemini(systemPrompt: string, history: any[], userMessage: string): Promise<string> {
@@ -79,23 +89,14 @@ Kurallar:
         // 1. En kararlı yapı: Sistem talimatını ilk mesaj çifti olarak enjekte et.
         // Bu yöntem hem v1 hem v1beta'da sorunsuz çalışır ve 'system_instruction' saha hatasını engeller.
         const contents: any[] = [
-            {
-                role: "user",
-                parts: [{ text: `TALİMATLAR: ${systemPrompt}` }]
-            },
-            {
-                role: "model",
-                parts: [{ text: "Anladım. Sırdaş AI olarak bu kurallara göre cevap vereceğim." }]
-            }
+            { role: "user", parts: [{ text: `SİSTEM TALİMATI: ${systemPrompt}` }] },
+            { role: "model", parts: [{ text: "Anladım. Bundan sonra sadece belirtilen JSON formatında ve duygu analiziyle cevap vereceğim." }] }
         ];
 
         let nextExpectedRole = "user";
         history.forEach(h => {
             // Role alternasyonunu koru ve mükerrerleri engelle
             if (h.role === nextExpectedRole) {
-                // Eğer son mesaj mevcut girdi ile aynıysa atla
-                if (h.role === 'user' && h.content === userMessage) return;
-
                 if (h.content && h.content.trim() !== "") {
                     contents.push({ role: h.role, parts: [{ text: h.content }] });
                     nextExpectedRole = nextExpectedRole === "user" ? "model" : "user";
@@ -106,9 +107,6 @@ Kurallar:
         // Sonuç mutlaka kullanıcı mesajı ile bitmeli
         if (nextExpectedRole === "user") {
             contents.push({ role: "user", parts: [{ text: userMessage }] });
-        } else if (contents.length > 0) {
-            // Eğer model bekleniyorsa ama biz user göndermek zorundaysak, sonuncuyu (eski user) değiştirelim
-            contents[contents.length - 1] = { role: "user", parts: [{ text: userMessage }] };
         }
 
         const response = await fetch(`${this.GEMINI_URL}?key=${this.geminiKey}`, {
@@ -116,28 +114,12 @@ Kurallar:
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: contents,
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 512
-                }
+                generationConfig: { temperature: 0.8, maxOutputTokens: 512 }
             })
         });
 
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error("Gemini Error Detail:", errorBody);
-            throw new Error(`Gemini Error (${response.status}): ${errorBody}`);
-        }
-
+        if (!response.ok) throw new Error("Gemini Error: " + response.status);
         const data = await response.json();
-        if (!data.candidates || data.candidates.length === 0) {
-            // Bazı durumlarda bloklanmış içerik olabilir
-            if (data.promptFeedback?.blockReason) {
-                throw new Error("Content blocked by Gemini: " + data.promptFeedback.blockReason);
-            }
-            throw new Error("Gemini returned no candidates");
-        }
-
         return data.candidates[0].content.parts[0].text;
     }
 
@@ -162,13 +144,10 @@ Kurallar:
             },
             body: JSON.stringify({
                 model: "llama-3.1-8b-instant", // Hızlı ve düşük maliyetli Groq modeli
-                messages: messages,
-                temperature: 0.7,
-                max_tokens: 512
+                messages: messages
             })
         });
 
-        if (!response.ok) throw new Error("Groq HTTP Error: " + response.status);
         const data = await response.json();
         return data.choices[0].message.content;
     }
