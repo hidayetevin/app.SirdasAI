@@ -86,8 +86,13 @@ async function initApp() {
     const aiName = settings?.aiName || 'Sırdaş';
     const aiGender = settings?.aiGender || 'neutral';
 
-    uiManager.callScreen.startCall(aiName);
+    uiManager.callScreen.startCall(aiName, aiGender);
     uiManager.callScreen.setStatus('Dinliyor...');
+
+    // Ses şiddeti grafiğini (Lip Sync) Avatar'a bağla
+    voiceService.onVolumeChange = (volume: number) => {
+      uiManager.callScreen.updateAvatarMouth(volume);
+    };
 
     // Recursive listening function
     const listenLoop = async () => {

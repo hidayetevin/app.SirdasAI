@@ -1,8 +1,8 @@
-import { AISilhouette } from '../components/AISilhouette';
+import { AvatarService } from '../../services/AvatarService';
 
 export class CallScreen {
     public element: HTMLElement;
-    private aiSilhouette: AISilhouette;
+    private avatarService: AvatarService | null = null;
     private onHangUp: () => void;
     private statusText!: HTMLElement;
     private aiNameText!: HTMLElement;
@@ -14,7 +14,6 @@ export class CallScreen {
         this.onHangUp = onHangUp;
         this.element = document.createElement('div');
         this.element.className = 'screen-container call-screen';
-        this.aiSilhouette = new AISilhouette();
         this.render();
     }
 
@@ -47,9 +46,17 @@ export class CallScreen {
       </div>
     `;
 
-        const silContainer = this.element.querySelector('#call-silhouette-container');
+        const silContainer = this.element.querySelector('#call-silhouette-container') as HTMLElement;
         if (silContainer) {
-            silContainer.appendChild(this.aiSilhouette.element);
+            // Container boyutlarını kapsayacak şekilde güncelle
+            silContainer.style.width = '100vw'; // Tam genişlik sağla ki flexbox ezip ince bir şerit yapmasın
+            silContainer.style.maxWidth = '500px';
+            silContainer.style.height = '50vh';
+            silContainer.style.minHeight = '350px';
+            silContainer.style.overflow = 'hidden';
+
+            // Avatar servisini başlat
+            this.avatarService = new AvatarService(silContainer);
         }
 
         this.statusText = this.element.querySelector('#call-status') as HTMLElement;
@@ -71,20 +78,26 @@ export class CallScreen {
         });
     }
 
-    public startCall(aiName: string) {
+    public startCall(aiName: string, gender: string) {
         this.aiNameText.textContent = aiName;
         this.statusText.textContent = 'Bağlandı';
         this.startTimer();
-        this.aiSilhouette.setTalking(false); // Start breathing
+
+        // Cinsiyete göre 3D modeli yükle
+        if (this.avatarService) {
+            this.avatarService.loadAvatar(gender);
+        }
+    }
+
+    public updateAvatarMouth(volume: number) {
+        if (this.avatarService) {
+            this.avatarService.setMouthOpenness(volume);
+        }
     }
 
     public setStatus(text: string) {
         this.statusText.textContent = text;
-        if (text === 'Dinliyor...' || text === 'Seni Duyuyorum...') {
-            this.aiSilhouette.setTalking(false);
-        } else if (text === 'Cevap Veriyor...') {
-            this.aiSilhouette.setTalking(true);
-        }
+        // AISilhouette kaldırıldı, 3D model idle animasyonları kendisi yönetiyor
     }
 
     private startTimer() {

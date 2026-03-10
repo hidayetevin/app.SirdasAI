@@ -5,6 +5,7 @@ export class VoiceService {
     private silenceTimeout: any = null;
     private onSpeechResultCallback: ((text: string) => void) | null = null;
     private onStartListeningCallback: (() => void) | null = null;
+    public onVolumeChange: ((volume: number) => void) | null = null;
     private TTS_API_URL = 'http://localhost:8002/tts';
 
     constructor() {
@@ -30,6 +31,10 @@ export class VoiceService {
             };
 
             this.recognition.onerror = (event: any) => {
+                if (event.error === 'no-speech') {
+                    // Sadece dinlemeye devam et, sessizlikte log atmaya gerek yok
+                    return;
+                }
                 console.error('Speech recognition error:', event.error);
                 if (event.error === 'not-allowed') {
                     alert('Lütfen mikrofon erişimine izin verin.');
@@ -87,9 +92,50 @@ export class VoiceService {
                 const audioBlob = await response.blob();
                 const audioUrl = URL.createObjectURL(audioBlob);
                 const audio = new Audio(audioUrl);
+
+                // Web Audio API ile ses analizi
+                const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+                const audioCtx = new AudioContext();
+                const analyser = audioCtx.createAnalyser();
+                const source = audioCtx.createMediaElementSource(audio);
+                source.connect(analyser);
+                analyser.connect(audioCtx.destination);
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                let animationId: number;
+
+                const processAudio = () => {
+                    if (audio.paused || audio.ended) return;
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        sum += dataArray[i];
+                    }
+                    const avg = sum / bufferLength;
+                    const volumeStr = Math.min(avg / 128, 1); // Normalize 0..1
+
+                    if (this.onVolumeChange) {
+                        this.onVolumeChange(volumeStr);
+                    }
+                    animationId = requestAnimationFrame(processAudio);
+                };
+
                 return new Promise((resolve) => {
-                    audio.onended = () => resolve();
-                    audio.onerror = () => resolve();
+                    audio.onplay = () => {
+                        processAudio();
+                    }
+                    audio.onended = () => {
+                        if (animationId) cancelAnimationFrame(animationId);
+                        if (this.onVolumeChange) this.onVolumeChange(0);
+                        resolve();
+                    };
+                    audio.onerror = () => {
+                        if (animationId) cancelAnimationFrame(animationId);
+                        if (this.onVolumeChange) this.onVolumeChange(0);
+                        resolve();
+                    };
                     audio.play();
                 });
             }
