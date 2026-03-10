@@ -29,9 +29,9 @@ export class AvatarService {
         const width = container.clientWidth || window.innerWidth;
         const height = container.clientHeight || window.innerHeight;
         this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-        // Kamerayı geçici olarak geriye (Z=3) alıyoruz ki model kadrajdan çıktıysa tamamen görelim.
-        this.camera.position.set(0, 1.0, 3.0);
-        this.camera.lookAt(0, 1.0, 0);
+        // Kamerayı yüz hizasına alıp portre çekimi gibi yaklaştırıyoruz
+        this.camera.position.set(0, 1.45, 1.0);
+        this.camera.lookAt(0, 1.45, 0);
 
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         this.renderer.setSize(width, height);
