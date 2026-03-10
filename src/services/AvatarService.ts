@@ -15,6 +15,17 @@ export class AvatarService {
     private basePositionY: number = -1;
     private baseRotationY: number = 0;
 
+    // Doğal Haraket/Jest motoru için hedef rotasyonlar
+    private gestureState = {
+        timer: 0,
+        targetLeftArmZ: 1.25, // Kollar aşağı sarkıyor
+        targetLeftArmX: 0,
+        targetLeftLowerArmX: 0,
+        targetRightArmZ: -1.25, // Kollar aşağı sarkıyor
+        targetRightArmX: 0,
+        targetRightLowerArmX: 0,
+    };
+
     // Yerel Klasördeki Modeller (.vrm öncelikli)
     // Eğer elinde klasöre attığın bir "Avatar.vrm" dosyası varsa adını buraya girmelisin. 
     // Örnek: private FEMALE_MODEL_URL = '/models/benimki.vrm';
@@ -132,6 +143,47 @@ export class AvatarService {
             );
         });
     }
+    // AI'dan gelen duygu durumuna göre VRM yüz ifadelerini (blendshape) değiştirir
+    public setEmotion(mood: string) {
+        if (!this.currentVrm || !this.currentVrm.expressionManager) return;
+
+        // Önceki tüm duyguları sıfırla ki çakışma olmasın
+        const expressions = [
+            VRMExpressionPresetName.Happy,
+            VRMExpressionPresetName.Sad,
+            VRMExpressionPresetName.Angry,
+            VRMExpressionPresetName.Relaxed,
+            VRMExpressionPresetName.Surprised,
+            VRMExpressionPresetName.Neutral
+        ];
+        expressions.forEach(exp => {
+            this.currentVrm!.expressionManager!.setValue(exp, 0);
+        });
+
+        // Yeni duyguyu belirle
+        let targetExpression = VRMExpressionPresetName.Neutral;
+        switch (mood.toLowerCase()) {
+            case 'mutlu':
+                targetExpression = VRMExpressionPresetName.Happy;
+                break;
+            case 'uzgun':
+                targetExpression = VRMExpressionPresetName.Sad;
+                break;
+            case 'heyecanli':
+                targetExpression = VRMExpressionPresetName.Surprised; // Şaşkın/Heyecanlı gözler tam açılır
+                break;
+            case 'ciddi':
+                targetExpression = VRMExpressionPresetName.Angry; // VRM mimiklerinde ciddi/kızgın maskesi kaşları çatar
+                break;
+            case 'normal':
+            default:
+                targetExpression = VRMExpressionPresetName.Neutral;
+                break;
+        }
+
+        // Seçilen duyguyu %100 kuvvette yüzüne uygula
+        this.currentVrm.expressionManager.setValue(targetExpression, 1.0);
+    }
 
     // Ses seviyesini (0 ile 1 arası) ağız açıklığına uygula (Gerçek Mükemmel Lip Sync)
     public setMouthOpenness(value: number) {
@@ -195,6 +247,68 @@ export class AvatarService {
             // VRM modelinin kendi fizik motoru, elbiselerin sallanmasını falan sağlar
             if (this.currentVrm) {
                 this.currentVrm.update(16 / 1000); // Ortalama 60fps delta
+
+                // Doğal Kollar ve Jestler (T-Pose'u kırma)
+                if (this.currentVrm.humanoid) {
+                    this.gestureState.timer--;
+                    if (this.gestureState.timer <= 0) {
+                        const r = Math.random();
+                        if (r > 0.85) {
+                            // Sağ el ile saçla oynama veya yüze dokunma
+                            this.gestureState.targetRightArmZ = -0.3; // Kolu kaldır
+                            this.gestureState.targetRightArmX = -1.2; // Öne getir
+                            this.gestureState.targetRightLowerArmX = -1.8; // Dirseği bük
+
+                            this.gestureState.targetLeftArmZ = 1.25;
+                            this.gestureState.targetLeftArmX = 0;
+                            this.gestureState.targetLeftLowerArmX = 0;
+                            this.gestureState.timer = 120 + Math.random() * 80; // 2-3 saniye sürsün
+                        } else if (r > 0.70) {
+                            // Sol el ile düşünme pozu
+                            this.gestureState.targetLeftArmZ = 0.3;
+                            this.gestureState.targetLeftArmX = -1.2;
+                            this.gestureState.targetLeftLowerArmX = -1.8;
+
+                            this.gestureState.targetRightArmZ = -1.25;
+                            this.gestureState.targetRightArmX = 0;
+                            this.gestureState.targetRightLowerArmX = 0;
+                            this.gestureState.timer = 120 + Math.random() * 80;
+                        } else {
+                            // Dinlenme Pozisyonu (Kollar iki yanda sarkılsın)
+                            this.gestureState.targetLeftArmZ = 1.25 + Math.random() * 0.1;
+                            this.gestureState.targetLeftArmX = 0;
+                            this.gestureState.targetLeftLowerArmX = -0.1;
+
+                            this.gestureState.targetRightArmZ = -1.25 - Math.random() * 0.1;
+                            this.gestureState.targetRightArmX = 0;
+                            this.gestureState.targetRightLowerArmX = -0.1;
+                            this.gestureState.timer = 300 + Math.random() * 200; // 5-8 saniye kalsın
+                        }
+                    }
+
+                    // Kemik çekimi ve animasyonun yumuşak uygulanması (Lerp)
+                    const h = this.currentVrm.humanoid;
+                    const lua = h.getNormalizedBoneNode('leftUpperArm');
+                    const lla = h.getNormalizedBoneNode('leftLowerArm');
+                    const rua = h.getNormalizedBoneNode('rightUpperArm');
+                    const rla = h.getNormalizedBoneNode('rightLowerArm');
+
+                    const smooth = 0.05; // Çizgi film gibi hızlı olmaması için
+                    if (lua) {
+                        lua.rotation.z += (this.gestureState.targetLeftArmZ - lua.rotation.z) * smooth;
+                        lua.rotation.x += (this.gestureState.targetLeftArmX - lua.rotation.x) * smooth;
+                    }
+                    if (lla) {
+                        lla.rotation.x += (this.gestureState.targetLeftLowerArmX - lla.rotation.x) * smooth;
+                    }
+                    if (rua) {
+                        rua.rotation.z += (this.gestureState.targetRightArmZ - rua.rotation.z) * smooth;
+                        rua.rotation.x += (this.gestureState.targetRightArmX - rua.rotation.x) * smooth;
+                    }
+                    if (rla) {
+                        rla.rotation.x += (this.gestureState.targetRightLowerArmX - rla.rotation.x) * smooth;
+                    }
+                }
             }
 
             this.renderer.render(this.scene, this.camera);

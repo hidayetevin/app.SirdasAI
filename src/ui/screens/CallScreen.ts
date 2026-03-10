@@ -95,6 +95,12 @@ export class CallScreen {
         }
     }
 
+    public setAvatarEmotion(mood: string) {
+        if (this.avatarService) {
+            this.avatarService.setEmotion(mood);
+        }
+    }
+
     public setStatus(text: string) {
         this.statusText.textContent = text;
         // AISilhouette kaldırıldı, 3D model idle animasyonları kendisi yönetiyor

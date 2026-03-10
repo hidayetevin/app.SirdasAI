@@ -105,10 +105,14 @@ async function initApp() {
         try {
           const aiResponse = await memoryService.handleUserMessage(text, aiName);
 
+          // AI'nın yüz ifadesini gelen cevabın duygu durumuna göre değiştir
+          uiManager.callScreen.setAvatarEmotion(aiResponse.mood);
+
           // AI'nın cevabını sesli oku (Duygu ile birlikte)
           await voiceService.speak(aiResponse.text, aiGender, aiResponse.mood);
 
-          // Okuma bittikten sonra tekrar dinlemeye başla
+          // Okuma bittikten sonra tekrar dinlemeye başlarken yüzünü normale döndür
+          uiManager.callScreen.setAvatarEmotion('normal');
           uiManager.callScreen.setStatus('Dinliyor...');
           listenLoop();
         } catch (err) {
