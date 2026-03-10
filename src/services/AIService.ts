@@ -49,23 +49,54 @@ export class AIService {
 
     private parseAIResponse(raw: string): { text: string, mood: string } {
         try {
-            // JSON formatını temizle (bazı modeller ```json ... ``` içinde döndürebilir)
-            const jsonStr = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(jsonStr);
-            return {
-                text: parsed.text || "Bir hata oluştu.",
-                mood: parsed.mood || "normal"
-            };
+            // 1. JSON bloğunu ayıkla (En dıştaki { ... } yapısını bulur, non-greedy)
+            const jsonMatch = raw.match(/\{[\s\S]*?\}/);
+            if (jsonMatch) {
+                try {
+                    const jsonStr = jsonMatch[0];
+                    const parsed = JSON.parse(jsonStr);
+                    if (parsed.text) {
+                        return {
+                            text: this.cleanFinalText(parsed.text),
+                            mood: parsed.mood || "normal"
+                        };
+                    }
+                } catch (e) {
+                    // JSON parse başarısızsa Regex ile anahtarları yakalamayı dene
+                    const textMatch = raw.match(/"text"\s*:\s*"([^"]*)"/);
+                    const moodMatch = raw.match(/"mood"\s*:\s*"([^"]*)"/);
+                    if (textMatch) {
+                        return {
+                            text: this.cleanFinalText(textMatch[1]),
+                            mood: moodMatch ? moodMatch[1] : "normal"
+                        };
+                    }
+                }
+            }
+
+            // 2. Eğer JSON bulunamazsa veya bozuksa, metni temizle ve oku
+            return { text: this.cleanFinalText(raw), mood: "normal" };
         } catch (e) {
-            // Eğer JSON değilse (eski sistem veya hata), düz metin olarak kabul et
-            return { text: raw, mood: "normal" };
+            return { text: "Bir sorun oluştu ama buradayım.", mood: "normal" };
         }
+    }
+
+    private cleanFinalText(raw: string): string {
+        return raw
+            .replace(/```json/gi, '')
+            .replace(/```/gi, '')
+            .replace(/\{[\s\S]*?\}/g, '') // JSON bloklarını tamamen temizle (non-greedy)
+            .replace(/"text"\s*:\s*/gi, '')
+            .replace(/"mood"\s*:\s*\w+/gi, '')
+            .replace(/[{}"]/g, '') // Kalan parantez ve tırnakları temizle
+            .replace(/\s+/g, ' ')  // Fazla boşlukları tek boşluğa indir
+            .trim();
     }
 
     private buildSystemPrompt(aiName: string, memories: MemoryItem[], profile: UserProfile | null): string {
         return `Senin adın ${aiName}. Empatik bir Sırdaş AI'sın.
         
-        KRİTİK KURAL: Cevaplarını her zaman aşağıdaki JSON formatında ver:
+        KRİTİK KURAL: Cevaplarını her zaman aşağıdaki JSON formatında ver. Kesinlikle sadece bu formatı kullan, başka hiçbir metin ekleme:
         {
           "text": "Vereceğin cevap metni buraya",
           "mood": "mutlu" | "uzgun" | "heyecanli" | "normal" | "ciddi"
