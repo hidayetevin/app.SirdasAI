@@ -29,8 +29,9 @@ export class AvatarService {
     // Yerel Klasördeki Modeller (.vrm öncelikli)
     // Eğer elinde klasöre attığın bir "Avatar.vrm" dosyası varsa adını buraya girmelisin. 
     // Örnek: private FEMALE_MODEL_URL = '/models/benimki.vrm';
-    private MALE_MODEL_URL = '/models/default_avatar.vrm';
-    private FEMALE_MODEL_URL = '/models/default_avatar.vrm';
+    private MALE_MODEL_URL = '/models/m-1.vrm';
+    private FEMALE_MODEL_URL = '/models/w-1.vrm';
+    private NEUTRAL_MODEL_URL = '/models/w-1.vrm';
 
     constructor(container: HTMLElement) {
         this.customContainer = container;
@@ -80,7 +81,12 @@ export class AvatarService {
             this.morphMeshes = [];
         }
 
-        const url = gender === 'female' ? this.FEMALE_MODEL_URL : this.MALE_MODEL_URL;
+        let url = this.NEUTRAL_MODEL_URL; // Nötr için varsayılan w-1
+        if (gender === 'male') {
+            url = this.MALE_MODEL_URL;
+        } else if (gender === 'female') {
+            url = this.FEMALE_MODEL_URL;
+        }
 
         const loader = new GLTFLoader();
 
@@ -161,7 +167,7 @@ export class AvatarService {
         });
 
         // Yeni duyguyu belirle
-        let targetExpression = VRMExpressionPresetName.Neutral;
+        let targetExpression: string = VRMExpressionPresetName.Neutral;
         switch (mood.toLowerCase()) {
             case 'mutlu':
                 targetExpression = VRMExpressionPresetName.Happy;
