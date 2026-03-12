@@ -4,6 +4,7 @@ export interface UserSettings {
     language: string;
     aiName: string;
     aiGender: string;
+    avatarModel?: string;
     dailyMessageCount: number;
     lastOpened: number; // timestamp
 }

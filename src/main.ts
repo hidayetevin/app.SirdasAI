@@ -42,6 +42,7 @@ async function initApp() {
       language: data.language,
       aiName: data.aiName,
       aiGender: data.aiGender,
+      avatarModel: data.avatarModel,
       dailyMessageCount: data.isGoogleAuth ? 50 : 30,
       lastOpened: Date.now()
     });
@@ -85,8 +86,9 @@ async function initApp() {
     const settings = await dbService.getSettings('main_user');
     const aiName = settings?.aiName || 'Sırdaş';
     const aiGender = settings?.aiGender || 'neutral';
+    const avatarModel = settings?.avatarModel || 'w-1'; // Model ismi (w-1, w-2 vs.)
 
-    uiManager.callScreen.startCall(aiName, aiGender);
+    uiManager.callScreen.startCall(aiName, avatarModel);
     uiManager.callScreen.setStatus('Dinliyor...');
 
     // Ses şiddeti grafiğini (Lip Sync) Avatar'a bağla

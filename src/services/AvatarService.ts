@@ -27,11 +27,7 @@ export class AvatarService {
     };
 
     // Yerel Klasördeki Modeller (.vrm öncelikli)
-    // Eğer elinde klasöre attığın bir "Avatar.vrm" dosyası varsa adını buraya girmelisin. 
-    // Örnek: private FEMALE_MODEL_URL = '/models/benimki.vrm';
-    private MALE_MODEL_URL = '/models/m-1.vrm';
-    private FEMALE_MODEL_URL = '/models/w-1.vrm';
-    private NEUTRAL_MODEL_URL = '/models/w-1.vrm';
+    // Eğer elinde klasöre attığın bir "Avatar.vrm" dosyası varsa adını "/models/isim.vrm" olarak kullanıyoruz.
 
     constructor(container: HTMLElement) {
         this.customContainer = container;
@@ -74,19 +70,19 @@ export class AvatarService {
         this.scene.add(fillLight);
     }
 
-    public async loadAvatar(gender: string) {
+    public async loadAvatar(modelId: string) {
         // Varsa eskisini temizle
         if (this.model) {
             this.scene.remove(this.model);
             this.morphMeshes = [];
         }
 
-        let url = this.NEUTRAL_MODEL_URL; // Nötr için varsayılan w-1
-        if (gender === 'male') {
-            url = this.MALE_MODEL_URL;
-        } else if (gender === 'female') {
-            url = this.FEMALE_MODEL_URL;
-        }
+        // Eğer parametre "female" "male" gibi gelirse varsayılan bir .vrm seç (örn: w-1, m-1)
+        let exactFileName = modelId;
+        if (modelId === 'female' || modelId === 'neutral') exactFileName = 'w-1';
+        if (modelId === 'male') exactFileName = 'm-1';
+
+        const url = `/models/${exactFileName}.vrm`;
 
         const loader = new GLTFLoader();
 
